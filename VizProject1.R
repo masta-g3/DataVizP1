@@ -55,13 +55,13 @@ surveyNew[surveyNew$Program == "QMSS (master)",]$Program <- "QMSS"
 surveyNew[surveyNew$Program == "Data Science Certification",]$Program <- "IDSE (certificate)"
 surveyNew[surveyNew$Program == "PhD Biomedical Informatics",]$Program <- "Ph.D."
 
-ggplot(surveyNew, aes(Program, fill=Program)) + geom_bar() +
-  geom_text(aes(label = format(..count.., digits=2, drop0trailing=TRUE), y= ..count.. ), stat= "count", vjust = -.5) +
-  theme(legend.position = "bottom")
+#ggplot(surveyNew, aes(Program, fill=Program)) + geom_bar() +
+#  geom_text(aes(label = format(..count.., digits=2, drop0trailing=TRUE), y= ..count.. ), stat= "count", vjust = -.5) +
+#  theme(legend.position = "bottom")
 
 ## Clean text editor.
 sort(unique(surveyNew$`Pref. Editor`))
-surveyNew[surveyNew$`Pref. Editor` == "Any (20 years C++/Java experience)",] <- "Any"
+surveyNew[surveyNew$`Pref. Editor` == "Any (20 years C++/Java experience)",]$`Pref. Editor` <- "Any"
 surveyNew[grepl("sublime", surveyNew$`Pref. Editor`, ignore.case=T),]$`Pref. Editor` <- "Sublime"
 surveyNew[surveyNew$`Pref. Editor` == "I used jupyter last semester",]$`Pref. Editor` <- "Jupiter"
 surveyNew[surveyNew$`Pref. Editor` == "textwrangler",]$`Pref. Editor` <- "textWrangler"
@@ -74,6 +74,12 @@ surveyNew[surveyNew$`Pref. Editor` == "xcode",]$`Pref. Editor` <- "XCode"
 surveyNew[surveyNew$`Pref. Editor` == "vi/vim",]$`Pref. Editor` <- "Vi/Vim"
 surveyNew[surveyNew$`Pref. Editor` == "haven't used any",]$`Pref. Editor` <- "None"
 
-ggplot(surveyNew, aes(`Pref. Editor`, fill=`Pref. Editor`)) + geom_bar() +
-  geom_text(aes(label = format(..count.., digits=2, drop0trailing=TRUE), y= ..count.. ), stat= "count", vjust = -.5) +
-  theme(legend.position = "bottom")
+
+## Clean gender.
+sort(unique(surveyNew$Gender))
+surveyNew[surveyNew$Gender == "",]$Gender <- "he/him"
+surveyNew[surveyNew$Gender == "doesn't matter",]$Gender <- "she/her"
+
+#ggplot(surveyNew, aes(`Pref. Editor`, fill=`Pref. Editor`)) + geom_bar() +
+#  geom_text(aes(label = format(..count.., digits=2, drop0trailing=TRUE), y= ..count.. ), stat= "count", vjust = -.5) +
+#  theme(legend.position = "bottom")
