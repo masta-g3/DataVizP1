@@ -1,0 +1,115 @@
+---
+title: "Can we Rank Students? "
+author: "Rohit Bharadwaj Gernapudi"
+date: "February 10, 2016"
+output: html_document
+---
+
+First, we assign a weight to each skill and a confidence score to each student. For each skill (*ggplot2*,*dropbox*,*R* *etc..*), its weight is inversely proportion to the number of students that have it. For example, *R* has a score of **21** as many students know it while the skill such as *lattice* has a very high score of **97** as very few students know it. Confidence score of the student is his average rating calculated by assigned ratings to each confidence level (Expert = ***4***, Confident = ***3***, A little = ***2***, None = ***1***). We use these two metrics to calculate weighted and unweighted score a student. 
+
+Unweighted score of the student is the sum of all the weights of the skills that he know. Weighted score is the product of unweighted score with the weight of student calculated above using the confidence measures. The graphs below depict the weights and scores calculated so far. 
+```{r echo=FALSE}
+library(knitr)
+library(reshape2)
+knitr::read_chunk('VizProject1.R')
+```
+
+```{r echo=FALSE}
+<<code1>>
+names <- names(surveyNew)
+backupSurvey <- surveyNew
+#print(names)
+colsums <- colSums(!is.na(surveyNew))
+colnames <- names(colsums)
+#print(colnames)
+colWeights <- (1 - colsums/nrow(surveyNew))
+surveyNew <- backupSurvey
+#print(colWeights)
+for (col in names(surveyNew))
+{
+  if (colWeights[col]!=0)
+  {
+    surveyNew[[col]][!is.na(surveyNew[[col]])] <- floor(colWeights[col]*100)
+    surveyNew[[col]][is.na(surveyNew[[col]])] <- 0
+  } else{
+    surveyNew[[col]][surveyNew[[col]] == "Confident"] <- 3
+    surveyNew[[col]][surveyNew[[col]] == "Expert"] <- 4
+    surveyNew[[col]][surveyNew[[col]] == "A little"] <- 2
+    surveyNew[[col]][surveyNew[[col]] == "None"] <- 1
+  }
+}
+
+score_student = function(x) {
+  columns <- names(x)
+  weightSkill <- 0
+  weightStudent <- 0
+  for (col in columns){
+    if (colWeights[col]!=0){
+      weightSkill <- weightSkill + as.integer(x[[col]])
+    } else {
+      if (x[[col]]<5 && col!="id"){
+        weightStudent <- weightStudent + as.integer(x[[col]])
+      }
+    }
+  }
+  #print(weightSkill)
+  #print(floor(weightStudent*10/24))
+  c(weightSkill/10, floor(weightStudent*10/24))
+}
+
+values = apply(surveyNew,1,score_student)
+Unweighted_scores = values[1,]
+score_Weights = values[2,]
+Weighted_scores = score_Weights*Unweighted_scores/10
+mat <- matrix(Unweighted_scores)
+mat <- cbind(mat, Weighted_scores)
+colnames(mat) <- c("Unweighted Score","WeightedScore")
+meltedMat <- melt(mat, id.vars="StudentId")
+colnames(meltedMat) <- c("StudentId","Type","Score")
+AlternateValues <- ddply(meltedMat,c("StudentId","Type"))
+
+```
+The histograms of the 4 metrics calculated till now are presented below.  
+```{r, echo=FALSE}
+hist(floor(colWeights*100), main="Frequencies of the weights of skills", xlab="Weight Intervals",ylab="Frequency")
+hist(score_Weights, main="Frequencies of the student confidence scores", xlab="Confidence Intervals", ylab="Frequency")
+hist(Unweighted_scores, main="Frequencies of the un-weighted scores", xlab="Score Intervals",ylab="Frequency")
+hist(Weighted_scores, main="Frequencies of the Weighted scores", xlab="Score Intervals",ylab="Frequency")
+
+plot_scores = function(Weighted_scores_all, UnWeighted_scores_all, indices, label) {
+  Weighted_scores = Weighted_scores_all[c(indices)]
+  Unweighted_scores = UnWeighted_scores_all[c(indices)]
+  mat <- matrix(Unweighted_scores)
+  mat <- cbind(mat, Weighted_scores)
+  colnames(mat) <- c("Unweighted Score","WeightedScore")
+  meltedMat <- melt(mat, id.vars="StudentId")
+  colnames(meltedMat) <- c("StudentId","Type","Score")
+  AlternateValues <- ddply(meltedMat,c("StudentId","Type"))
+  print(ggplot(data=AlternateValues, aes(x=StudentId, y=Score, group=Type, fill=Type)) + 
+    geom_bar(stat="identity", position="dodge") +  
+    stat_abline(intercept=mean(Weighted_scores), slope=0, show_guide=TRUE, color="blue", width=1) + 
+    stat_abline(intercept=mean(Unweighted_scores), slope=0, show_guide=TRUE, color="black", width=1) +
+    labs(title=label))
+  
+}
+```
+
+Below, we present the individual score of each student, first segregated on the basis of the program and then for the entire class. 
+
+```{r, echo=FALSE}
+programArray <- as.factor(c(surveyNew$Program))
+indices <- list()
+for (l in levels(programArray)){
+  indices[[l]] <- c(which(programArray == l))
+}
+#check <- split(surveyNew$id, levels(programArray))
+indices$"All Programs" <- c(1:114)
+for (ids in names(indices)){
+  #print(ids)
+  #print(check[[ids]])
+  plot_scores(Weighted_scores, Unweighted_scores, c(indices[[ids]]),ids)
+}
+
+```
+
+We can observe a trend that most of the students doesn't have a high score, as expected from the diverse skill set. Also, weighted scores are always less than the unweighted score (which can be inferred from the average lines). In the comparision graph, we can observe that for students who had high unweighted score also had huge decline in the weighted score suggesting that there is a scope for learning even when you have an understanding of the skills. If the course privdes an opportunity for students learn all the skills listed, then the difference between weighted and unweighted scores should be minimized. We can only wait for the survey at the end of the course to ascertain our claim. 
