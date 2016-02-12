@@ -36,7 +36,7 @@ make_row = function(x) {
   m <- c(rep(NA,lg))
   names(m) <- toolsList
   v = as.character(unique(trim(unlist(strsplit(x[1,2], ",")))))
-  m[v] = "Yes"
+  m[v] = 1
   m
 }
 
@@ -44,6 +44,10 @@ outFile <- ddply(.data=test, .variables=.(id), .fun=make_row)
 
 surveyNew <- merge(survey, outFile, by="id")
 surveyNew <- surveyNew[!(names(surveyNew) %in% c("Tools"))]
+names(surveyNew)[c(19,20,21,23,27)] <- c("Dropbox", "Google Drive", "RegEx", "Shell", "Web")
+
+## Turn to binary variable.
+surveyNew[is.na(surveyNew)] <- 0
 
 ## Clean program options.
 sort(unique(surveyNew$Program))
@@ -83,3 +87,34 @@ surveyNew[surveyNew$Gender == "doesn't matter",]$Gender <- "she/her"
 #ggplot(surveyNew, aes(`Pref. Editor`, fill=`Pref. Editor`)) + geom_bar() +
 #  geom_text(aes(label = format(..count.., digits=2, drop0trailing=TRUE), y= ..count.. ), stat= "count", vjust = -.5) +
 #  theme(legend.position = "bottom")
+
+
+###########################
+#### CLUSTER ANALYSIS ####
+#########################
+
+## Training an labeled data.
+inputCluster <- surveyNew[12:31]
+programs <- (surveyNew[,3])
+
+## Cluster Dendogram.
+d <- dist(t(inputCluster), method = "binary")
+hc <- hclust(d)
+plot(hc)
+
+library(stats)
+pca <- prcomp(inputCluster)
+plot(pca, type = "l")
+summary(pca)
+
+
+library(devtools)
+install_github("ggbiplot", "vqv")
+
+library(ggbiplot)
+g <- ggbiplot(pca, obs.scale = 1, var.scale = 1, groups = programs,
+              ellipse = TRUE, circle = TRUE)
+g <- g + scale_color_discrete(name = '')z
+g <- g + theme(legend.direction = 'horizontal', 
+               legend.position = 'top')
+print(g)

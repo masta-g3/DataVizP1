@@ -1,0 +1,171 @@
+---
+title: "EDVA Project I: Course Students Analysis"
+author: "Manuel Rueda"
+date: "February 11, 2016"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+```{r libraries}
+source("https://raw.githubusercontent.com/briatte/ggcorr/master/ggcorr.R")
+library(GGally)
+library(gdata)
+library(ggplot2)
+library(plyr)
+library(stats)
+library(devtools)
+library(ggbiplot)
+library(knitr)
+```
+
+## Data Cleaning
+
+Before starting to analyze the data, first we are required to clean it and standarize for ease of access. Below we outline the steps taken for this, with specific available at the code file.
+
+1. The input file contains a number of rows that provide no information (i.e. all *NA* values). We will proceed to delete these.
+
+2. The second column, *Program*, contains distinct entries that refer to the same  program, such as "IDSE (master)" and "master in ds". We will standarize this.
+
+3. The third column, *Experience with tools*, is in the form of a list within each row. For purposes of our analysis we need to parse the column into a number of binary variables that will indicate wether or not a given student has experience with a particular tool.
+
+4. Similar to point *2*, the *Prefered Editor* column contains redudant entries. We proceed to standarize and clean these up.
+
+5. For *Gender*, two entries did not correspond to male or female. We have randomly assigned one of the 2 genders to them (given the large number of observations the impact of this transformation is negligible).
+
+Below is a snapshot of how the final working data frame looks like.
+
+```{r}
+survey <- read.xls("Survey+Response.xlsx", stringsAsFactors = F)
+
+## Add ID variable.
+survey <- cbind(1:nrow(survey), survey)
+
+## Drop useless columns and rename the good ones.
+survey <- survey[,colSums(is.na(survey))<nrow(survey)]
+newNames <- c("id", "Waitlist", "Program", "Tools", "R - Data Manipulation", "Gender", "Pref. Editor", "R - Graphic Skills", "R - Adv. Multivariate Analysis Skills", "R - Reproducibility Skills", "Matlab Skills", "Github Skills")
+names(survey) <- newNames
+
+## Get list of all available "tools".
+toolsList <- as.character(survey$Tools)
+toolsList <- strsplit(toolsList, ",")
+toolsList <- unique(trim(unlist(toolsList)))
+lg <- length(toolsList)
+
+## Make binary variables for each tool.
+test <- data.frame(survey$id, survey$Tools, stringsAsFactors = F)
+names(test) <- c("id", "tools")
+out <- data.frame(matrix(ncol=lg, nrow=0))
+names(out) <- toolsList
+
+make_row = function(x) {
+  m <- c(rep(NA,lg))
+  names(m) <- toolsList
+  v = as.character(unique(trim(unlist(strsplit(x[1,2], ",")))))
+  m[v] = 1
+  m
+}
+
+outFile <- ddply(.data=test, .variables=.(id), .fun=make_row)
+
+surveyNew <- merge(survey, outFile, by="id")
+surveyNew <- surveyNew[!(names(surveyNew) %in% c("Tools"))]
+names(surveyNew)[c(19,20,21,23,27)] <- c("Dropbox", "Google Drive", "RegEx", "Shell", "Web")
+
+## Turn to binary variable.
+surveyNew[is.na(surveyNew)] <- 0
+
+## Clean program options.
+surveyNew[surveyNew$Program == "Ms in ds",]$Program <- "IDSE (master)"
+surveyNew[surveyNew$Program == "MSDS",]$Program <- "IDSE (master)"
+surveyNew[surveyNew$Program == "Data Science",]$Program <- "IDSE (master)"
+surveyNew[surveyNew$Program == "QMSS (master)",]$Program <- "QMSS"
+surveyNew[surveyNew$Program == "Data Science Certification",]$Program <- "IDSE (certificate)"
+surveyNew[surveyNew$Program == "PhD Biomedical Informatics",]$Program <- "Ph.D."
+
+## Clean text editor.
+surveyNew[surveyNew$`Pref. Editor` == "Any (20 years C++/Java experience)",]$`Pref. Editor` <- "Any"
+surveyNew[grepl("sublime", surveyNew$`Pref. Editor`, ignore.case=T),]$`Pref. Editor` <- "Sublime"
+surveyNew[surveyNew$`Pref. Editor` == "I used jupyter last semester",]$`Pref. Editor` <- "Jupiter"
+surveyNew[surveyNew$`Pref. Editor` == "textwrangler",]$`Pref. Editor` <- "textWrangler"
+surveyNew[surveyNew$`Pref. Editor` == "Text Wrangler",]$`Pref. Editor` <- "textWrangler"
+surveyNew[surveyNew$`Pref. Editor` == "python",]$`Pref. Editor` <- "iPython"
+surveyNew[surveyNew$`Pref. Editor` == "ipynb",]$`Pref. Editor` <- "iPython"
+surveyNew[surveyNew$`Pref. Editor` == "Webstorm, pycharm",]$`Pref. Editor` <- "iPython"
+surveyNew[surveyNew$`Pref. Editor` == "notepad++",]$`Pref. Editor` <- "Notepad++"
+surveyNew[surveyNew$`Pref. Editor` == "xcode",]$`Pref. Editor` <- "XCode"
+surveyNew[surveyNew$`Pref. Editor` == "vi/vim",]$`Pref. Editor` <- "Vi/Vim"
+surveyNew[surveyNew$`Pref. Editor` == "haven't used any",]$`Pref. Editor` <- "None"
+
+## Clean gender.
+surveyNew[surveyNew$Gender == "",]$Gender <- "he/him"
+surveyNew[surveyNew$Gender == "doesn't matter",]$Gender <- "she/her"
+
+head(surveyNew,3)
+```
+
+## Cluster Analysis and PCA
+
+For this part of the analysis, we will focus our attention on the *Tools* that each of the students listed as being comfortable with. There are a total of 20 different reported tools, an we would like to investigate if some of these tend to appear in groups. An obvious example is to expect that *R* and *RStudio* are generally reported together, while *Web* and *Matlab* probably are not so closely related.
+
+The list of reported skills are:
+
+```{r ToolsList}
+inputCluster <- surveyNew[12:31]
+colnames(inputCluster)
+```
+
+As a first step, we begin by analyzing the correlation across tools. The observed relationship is presented on the matrix below.
+
+```{r CorrelationMatrix}
+names(inputCluster)[14] <- "Sweave"
+names(inputCluster)[17] <- "C"
+cov_mat = cov(inputCluster)
+ggcorr(cov_mat)
+```
+
+The correlation matrix gives us a good idea of how the skills relate pairwise, but it would be interesting to see how each of them relate to the rest, giving us a broader picture. Building a hierarchical binary dendogram is useful for this.
+
+```{r Hierarchical Dendogram}
+## Cluster Dendogram.
+d <- dist(t(inputCluster), method = "binary")
+hc <- hclust(d)
+plot(hc, xlab = "Skills")
+```
+
+This picture provides us some interesting insights:
+
+1. As expected, *R* & *RStudio* are closely related, followed by *Python*. These tools can be considered the core of the Data Scientist.
+2. *Excel*, *Dropbox* and *Google Drive* also cluster together. These can be considered the least technical of the skills.
+3. *XML* and *Web* go together, which makes sense considering XML and HTML are basically the same language.
+4. *Stata*, *SPSS*, *Sweave* & *Latice* are tools closely related to each other. Generally these are more associated to the social sciences, or the QMSS program.
+
+As a next step, we will perform a PCA analysis on the tools data. The idea is to reduce the dimensionality of the data by finding which tools are similar enough to be grouped with each other, so a visual representation of the data becomes possible (visualizing 20-dimensional data is a complex task). First we derive 10 PCA components, and investigate how much variance each of them explains.
+
+```{r PCA}
+## Training an labeled data.
+programs <- (surveyNew[,3])
+
+pca <- prcomp(inputCluster)
+plot(pca, type = "l")
+summary(pca)
+```
+
+The table shows us that 30% of the variance in the data can be explained by 2 components, and almost 70% by 7 of them. For purposes of visualization, we will take only 2 components and see how the skills can be represented in space, while we also investigate their different distirbutions across academic programs.
+
+```{r PCA Viz}
+g <- ggbiplot(pca, obs.scale = 1, var.scale = 1, groups = programs,
+              ellipse = TRUE, circle = TRUE)
+g <- g + scale_color_discrete(name = '')
+g <- g + theme(legend.direction = 'horizontal', 
+               legend.position = 'top')
+print(g)
+```
+
+Again we see some interesting patterns: the least technical skills (*Excel*, *Dropbox*, *Google Drive*, etc.) are grouped on the upper left quadrant, while the more technical ones on the lower left. *SPSS* in particular has an X component with a distinct direction than the rest of the tools, indiciating a dissasociation with them.
+
+Related to the programs, we see that all of them are very similar, with 2 interesting exceptions:
+1. The *Statistics (master)* group is shifted towards the right, indicating a different familiarity with tools. This group can be associated with the *SPSS* vector.
+2. The *QMSS* group is the broadest one, impying that their skills vary significantly form student to student. This is something we already observed on previous analysis from our study.
