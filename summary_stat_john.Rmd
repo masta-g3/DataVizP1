@@ -1,0 +1,88 @@
+---
+title: "Experience With Tools by Program"
+output: html_document
+---
+
+```{r ggplot2, fig.width=10}
+library(gdata)
+library(ggplot2)
+library(plyr)
+library(Rmisc)
+
+tools_line <- surveyNew[c(2, 3, 5, 12:31)]
+tools_line[is.na(tools_line[,])] <- 0
+tools_line[tools_line == "Yes"] <- 1
+
+x <- tools_line[c(4:23)]
+x <- data.matrix(x)
+tools_line <- cbind(tools_line, Total = rowSums(x))
+
+program_tools <- tools_line[c(2, 24)]
+
+ggplot(data.frame(x = c(-2, 23)), aes(x)) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "IDSE (master)")$Total), 
+                                               sd = sd(subset(program_tools, Program == "IDSE (master)")$Total)), aes(colour = "IDSE (master)"), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "Other masters")$Total), 
+                                               sd = sd(subset(program_tools, Program == "Other masters")$Total)), aes(colour = "Other masters"), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "IDSE (certificate)")$Total), 
+                                               sd = sd(subset(program_tools, Program == "IDSE (certificate)")$Total)), aes(colour = "IDSE (certificate)"), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "Statistics (master)")$Total), 
+                                               sd = sd(subset(program_tools, Program == "Statistics (master)")$Total)), aes(colour = "Statistics (master)"), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "QMSS")$Total), 
+                                               sd = sd(subset(program_tools, Program == "QMSS")$Total)), aes(colour = "QMSS"), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "Ph.D.")$Total), 
+                                               sd = sd(subset(program_tools, Program == "Ph.D.")$Total)), aes(colour = "Ph.D."), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools, Program == "Applied Math")$Total), 
+                                               sd = sd(subset(program_tools, Program == "Applied Math")$Total)), aes(colour = "Applied Math"), size=1.5) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools)$Total), 
+                                               sd = sd(subset(program_tools)$Total)), size=1, linetype=2, colour="black") +
+        scale_colour_manual("Program", values = c("white","#0066CC", "#FFF999", "#FF6666", "#99FF99", "#FF9933", "#CC66FF")) +
+        labs(x = "Number of Tools") +
+        labs(y = "") +
+        theme_classic() +
+        labs(title = "Experience with Tools by Program") 
+```
+    
+        The graph above shows the normal curves of the number of tools that students have experience with, based on what program they are in. The black, dashed line is the normal curve for the number of tools that students have experience with for the entire class, not taking into account what program they are in. You'll notice that the normal curve for the Applied Math students is missing. This is because there is only one Applied Math student according to the survey data. This student has experience in 5 tools, which, compared to the averages of the other programs, is the lowest.    
+        
+        At first glance, you might notice that the orange normal curve, which is for the QMSS students, is significantly farther to the right than the other curves, indicating that QMSS students, on average, have experience with the most amount of tools (12.33333). The QMSS curve is also the widest, suggesting that the range of number of tools that students have experience with is large.  
+        
+        The purple normal curve, for the Statistics (master) students, is the farthest to the left, indicating that those students have experience with the least amount of tools on average (excluding the Applied Math students). This curve is also tall and narrow, suggesting that the number of tools that these students have experience with does not stray too far from the mean. It makes sense that the statistics and math students have experience with less of these tools on average compared to programs like IDSE (master), IDSE (certificate), and QMSS, considering that the latter programs are likely more focused on computer programming.  
+        
+        The yellow, red, and blue normal curves, for the IDSE (masters), Other Masters, and IDSE (certificate) students, respectively, look to be clustered in the same area, and in fact, their means vary by less than 1 and standard deviations differ by less than .2. Considering the fact that almost 80% of the class is in one of these 3 programs, it should come as no surprise that the black, dashed normal curve representing the class as a whole is also in this cluster. As one might expect, the IDSE (master) students have experience with more tools than the IDSE (certificate) students on average.   
+        
+        The mint normal curve for the Ph.D. students is the tallest and most narrow, indicating that compared to all of other programs, the number of tools that these students have experience with varies the least. The Ph.D. average is  larger than the class average, which I assume can be attributed to the fact that they are working towards getting the highest-level degree of anyone in the class. 
+       
+
+Experience With Tools by Gender
+---
+```{r, fig.width=10}
+gender_tools <- tools_line[c(3, 24)]
+cbPalette <- c("#99CCFF", "#FF9933")
+norm <- ggplot(data.frame(x = c(-2, 18)), aes(x)) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(gender_tools, Gender == "he/him")$Total), 
+                                               sd = sd(subset(gender_tools, Gender == "he/him")$Total)), aes(colour = "he/him"), size=2) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(gender_tools, Gender == "she/her")$Total), 
+                                               sd = sd(subset(gender_tools, Gender == "she/her")$Total)), aes(colour = "she/her"), size=2) +
+        stat_function(fun = dnorm, args = list(mean = mean(subset(program_tools)$Total), 
+                                               sd = sd(subset(program_tools)$Total)), size=1, linetype=2, colour="black") +
+        scale_colour_manual("Gender", values = c("#99CCFF", "#FF9933")) +
+        labs(x = "Number of Tools") +
+        labs(y = "") +
+        labs(title = "Experience with Tools by Gender") +
+        theme_classic()
+bar <- ggplot(data=surveyNew, aes(x=Program, fill=Gender)) +
+        geom_bar(stat="bin", position=position_dodge()) +
+        labs(y = "") + 
+        scale_fill_manual(values=cbPalette) +
+        labs(title = "Students in Program by Gender")
+
+
+multiplot(norm, bar)
+```
+        
+        The graph above plots the normal curves of the number of tools that students have experience with, based on their gender. The black, dashed line is the normal curve for the number of tools that students have experience with for the entire class, not taking into account gender. 
+        
+        The normal curve for the entire class is similar to that of the male students, and certainly more similar to the male students than the females. This is likely because there are more than double the amount of males in the class than there are females. Also, the curve for the females is taller and slightly skinnier, which means the amount of tools that females have experience with varies less than that of the males. 
+        
+        The difference in averages between the genders is most likely do to the programs in which the students are enrolled. There is more than 3 times as many males in the IDSE (master) program than there are females, and that program had the second largest average for the number of tools that students had experience with. Further, the program that had the second most amount of females in it was the Statistics (master) program, which had the second lowest average for the number of tools that students had experience with.
